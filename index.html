@@ -518,10 +518,18 @@
         document.getElementById("step-result").classList.remove("hidden");
         const container = document.getElementById("result-container");
         STATE.drawnCards.forEach((card) => {
+          const orientationText =
+            card.orientation === "upright" ? "(正位)" : "(逆位)";
           container.innerHTML += `
             <div class="w-32 h-52 border border-[#d4af37]/50 rounded-sm overflow-hidden flex-shrink-0 relative">
-                <img src="${card.url}" class="w-full h-full object-cover">
-                <div class="absolute bottom-0 inset-x-0 bg-black/80 p-1 text-center text-[9px] text-[#d4af37]">${card.cn}</div>
+                <img src="${
+                  card.url
+                }" class="w-full h-full object-cover" style="transform: ${
+            card.orientation === "reversed" ? "rotate(180deg)" : "rotate(0deg)"
+          };">
+                <div class="absolute bottom-0 inset-x-0 bg-black/80 p-1 text-center text-[9px] text-[#d4af37]">${
+                  card.cn
+                } ${orientationText}</div>
             </div>`;
         });
       }
@@ -541,24 +549,38 @@
         ];
 
         STATE.drawnCards.forEach((card, i) => {
+          const orientationText =
+            card.orientation === "upright" ? "(正位)" : "(逆位)";
           grid.innerHTML += `
             <div class="flex flex-col items-center">
                 <span class="text-[9px] text-gray-600 tracking-[0.4em] mb-6">${
                   labels[i] || ""
                 }</span>
                 <div class="w-44 h-72 border border-[#222] shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-hidden">
-                    <img src="${card.url}" class="w-full h-full object-cover">
+                    <img src="${
+                      card.url
+                    }" class="w-full h-full object-cover" style="transform: ${
+            card.orientation === "reversed" ? "rotate(180deg)" : "rotate(0deg)"
+          };">
                 </div>
                 <h4 class="mt-6 text-[#d4af37] serif-font text-xl tracking-widest">${
                   card.cn
-                }</h4>
+                } ${orientationText}</h4>
             </div>`;
         });
 
         document.getElementById("interpretation-text").innerHTML = `
             <p><strong>[能量流动解析]</strong></p>
-            <p>太阳的意志通过 <strong>${STATE.drawnCards[0].cn}</strong> 指向了你的根源，这意味着你当前面临的处境并非偶然，而是宿命的必然。在 <strong>${STATE.drawnCards[1].cn}</strong> 的照耀下，你的真实渴望无所遁形。</p>
-            <p>最终，虚空将收拢于 <strong>${STATE.drawnCards[2].cn}</strong>。这不是终点，而是意识觉醒的契机。请紧握太阳之火，照亮未竟的旅程。</p>
+            <p>太阳的意志通过 <strong>${STATE.drawnCards[0].cn}${
+          STATE.drawnCards[0].orientation === "upright" ? "(正位)" : "(逆位)"
+        }</strong> 指向了你的根源，这意味着你当前面临的处境并非偶然，而是宿命的必然。在 <strong>${
+          STATE.drawnCards[1].cn
+        }${
+          STATE.drawnCards[1].orientation === "upright" ? "(正位)" : "(逆位)"
+        }</strong> 的照耀下，你的真实渴望无所遁形。</p>
+            <p>最终，虚空将收拢于 <strong>${STATE.drawnCards[2].cn}${
+          STATE.drawnCards[2].orientation === "upright" ? "(正位)" : "(逆位)"
+        }</strong>。这不是终点，而是意识觉醒的契机。请紧握太阳之火，照亮未竟的旅程。</p>
         `;
       }
 
@@ -729,6 +751,12 @@
       function selectCard(mesh) {
         STATE.selectedMesh = mesh;
 
+        // 随机决定牌的正逆位 (50%概率)
+        const isUpright = Math.random() < 0.5;
+
+        // 保存正逆位信息到卡片数据
+        mesh.userData.data.orientation = isUpright ? "upright" : "reversed";
+
         // 修复：加载图片时，如果出错也应该让颜色变白，至少能看到空白牌
         const imgUrl = mesh.userData.data.url;
 
@@ -755,17 +783,23 @@
           duration: 1.2,
           ease: "power3.out",
         });
+
+        // 根据正逆位设置旋转角度 (绕Z轴旋转180度实现倒牌效果)
+        const targetRotationZ = isUpright ? 0 : Math.PI;
         gsap.to(mesh.rotation, {
           x: 0,
           y: 0,
-          z: 0,
+          z: targetRotationZ,
           duration: 1.2,
           ease: "back.out(1)",
         });
 
         document.getElementById(
           "instruction"
-        ).innerHTML = `已捕获: <span class="text-[#d4af37] font-bold">${mesh.userData.data.cn}</span>`;
+        ).innerHTML = `已捕获: <span class="text-[#d4af37] font-bold">${
+          mesh.userData.data.cn
+        }</span> ${isUpright ? "(正位)" : "(逆位)"}`;
+
         const btn = document.getElementById("btn-confirm");
         btn.classList.remove("hidden");
         gsap.fromTo(
