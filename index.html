@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Void Tarot v12 - Solar (Fixed CDN)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Noto+Serif+SC:wght@300;600&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <style>
+      :root {
+        --gold: #d4af37;
+        --deep-black: #050505;
+      }
+      body {
+        font-family: "Noto Serif SC", serif;
+        background-color: var(--deep-black);
+        color: #e2e8f0;
+        overflow: hidden;
+        touch-action: none;
+        cursor: grab;
+      }
+      body.grabbing {
+        cursor: grabbing;
+      }
+      .serif-font {
+        font-family: "Cinzel", serif;
+      }
+
+      .ui-container {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        pointer-events: none;
+      }
+      .interactive {
+        pointer-events: auto;
+      }
+
+      .glass-panel {
+        background: rgba(8, 8, 8, 0.95);
+        backdrop-filter: blur(25px);
+        border: 1px solid rgba(212, 175, 55, 0.2);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 1);
+      }
+
+      .gold-input {
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+        color: #d4af37;
+        transition: 0.3s;
+        text-align: center;
+      }
+      .gold-input:focus {
+        outline: none;
+        border-bottom-color: #d4af37;
+      }
+
+      .btn-gold {
+        background: linear-gradient(to bottom, #1a1a1a, #000);
+        border: 1px solid #665220;
+        color: #d4af37;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        transition: all 0.3s;
+        cursor: pointer;
+      }
+      .btn-gold:hover {
+        border-color: #d4af37;
+        box-shadow: 0 0 25px rgba(212, 175, 55, 0.4);
+      }
+
+      /* 进度条指示器 */
+      .progress-indicator {
+        position: absolute;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 280px;
+        height: 1px;
+        background: rgba(212, 175, 55, 0.1);
+      }
+      .progress-fill {
+        height: 100%;
+        background: var(--gold);
+        box-shadow: 0 0 15px var(--gold);
+        width: 0%;
+        transition: width 0.1s linear;
+      }
+
+      /* 滚动条美化 */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #000;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: var(--gold);
+      }
+
+      /* 加载中动画 */
+      .loading-spinner {
+        border: 2px solid rgba(212, 175, 55, 0.1);
+        border-left-color: #d4af37;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body class="h-screen w-screen relative bg-black">
+    <div id="canvas-container" class="absolute inset-0 z-0"></div>
+
+    <div class="ui-container flex flex-col justify-between">
+      <header class="p-6 opacity-40">
+        <h1
+          class="text-xl font-bold text-[#d4af37] serif-font tracking-[0.4em]"
+        >
+          ORACLE · VOID
+        </h1>
+        <div class="text-[8px] tracking-[0.3em] mt-1 uppercase">
+          Ancient Sun 78-Card Alignment
+        </div>
+      </header>
+
+      <div
+        id="step-0"
+        class="absolute inset-0 flex items-center justify-center bg-black/90 backdrop-blur-xl interactive"
+      >
+        <div
+          class="glass-panel p-12 rounded-sm max-w-md w-full mx-4 space-y-12 text-center border-t-2 border-[#d4af37]"
+        >
+          <div class="space-y-4">
+            <h2 class="text-3xl text-[#d4af37] serif-font tracking-widest">
+              命运契约
+            </h2>
+            <p class="text-[10px] text-gray-500 tracking-[0.5em] uppercase">
+              Sacred Connection
+            </p>
+          </div>
+          <div class="space-y-8">
+            <input
+              type="text"
+              id="input-oc"
+              class="gold-input w-full p-2 text-base"
+              placeholder="请输入你的身份代号"
+            />
+            <input
+              type="text"
+              id="input-q"
+              class="gold-input w-full p-2 text-base"
+              placeholder="你想要向太阳询问什么？"
+            />
+          </div>
+          <button
+            onclick="startApp()"
+            class="btn-gold w-full py-5 text-xs font-bold tracking-[0.4em]"
+          >
+            开启仪式
+          </button>
+        </div>
+      </div>
+
+      <div
+        id="step-draw"
+        class="hidden absolute inset-0 flex flex-col justify-between py-10"
+      >
+        <div class="flex justify-center gap-6 opacity-80">
+          <div
+            id="slot-1"
+            class="w-12 h-20 border border-[#222] bg-black/60 rounded-sm flex items-center justify-center text-[10px] text-gray-700"
+          >
+            PAST
+          </div>
+          <div
+            id="slot-2"
+            class="w-12 h-20 border border-[#222] bg-black/60 rounded-sm flex items-center justify-center text-[10px] text-gray-700"
+          >
+            PRESENT
+          </div>
+          <div
+            id="slot-3"
+            class="w-12 h-20 border border-[#222] bg-black/60 rounded-sm flex items-center justify-center text-[10px] text-gray-700"
+          >
+            FUTURE
+          </div>
+        </div>
+
+        <div class="text-center">
+          <p
+            id="instruction"
+            class="text-gray-500 text-[10px] tracking-[0.6em] uppercase"
+          >
+            左右拨动 · 寻获共鸣之牌
+          </p>
+        </div>
+
+        <div class="flex justify-center mb-7 min-h-[60px]">
+          <button
+            id="btn-confirm"
+            onclick="confirmCard()"
+            class="hidden interactive btn-gold px-16 py-4 rounded-full text-xs shadow-[0_0_40px_rgba(212,175,55,0.4)]"
+          >
+            确 认 此 牌 并 焚 化
+          </button>
+        </div>
+
+        <div class="progress-indicator">
+          <div id="progress-bar" class="progress-fill"></div>
+        </div>
+      </div>
+
+      <div
+        id="step-result"
+        class="hidden absolute inset-0 bg-black/95 backdrop-blur-3xl flex flex-col items-center justify-center p-8 interactive"
+      >
+        <h2 class="text-2xl text-[#d4af37] serif-font mb-12 tracking-[0.8em]">
+          三相星图
+        </h2>
+        <div
+          id="result-container"
+          class="flex gap-8 mb-16 overflow-x-auto p-4 max-w-full"
+        ></div>
+        <button
+          onclick="showDetails()"
+          class="btn-gold px-12 py-4 text-xs tracking-[0.3em]"
+        >
+          读取太阳解读
+        </button>
+      </div>
+
+      <div
+        id="step-details"
+        class="hidden absolute inset-0 bg-[#050505] overflow-y-auto interactive custom-scrollbar"
+      >
+        <div class="max-w-4xl mx-auto p-8 py-20">
+          <div
+            class="flex justify-between items-center border-b border-[#222] pb-6 mb-12"
+          >
+            <span class="text-[#444] text-[10px] tracking-[0.4em]"
+              >SOLAR RECORD: #<span id="log-id"></span
+            ></span>
+            <button
+              onclick="location.reload()"
+              class="text-[#d4af37] text-[10px] hover:underline tracking-widest"
+            >
+              RESTART
+            </button>
+          </div>
+          <div
+            class="grid grid-cols-1 md:grid-cols-3 gap-12 mb-16"
+            id="detail-cards-grid"
+          ></div>
+          <div
+            class="glass-panel p-10 rounded-sm text-gray-300 font-light leading-relaxed text-sm border-l-2 border-[#d4af37]"
+          >
+            <h3
+              class="text-[#d4af37] mb-6 font-bold text-xs uppercase tracking-[0.4em]"
+            >
+              The Oracle's Whispers
+            </h3>
+            <div id="interpretation-text" class="space-y-6"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ================= 78张塔罗牌数据源 (修复：使用 jsDelivr CDN 加速) =================
+      // 原始链接 raw.githubusercontent.com 在国内无法访问，这里替换为 cdn.jsdelivr.net
+      const IMG_ROOT = "./韦特塔罗牌/";
+
+      const MAJOR = [
+        "m00",
+        "m01",
+        "m02",
+        "m03",
+        "m04",
+        "m05",
+        "m06",
+        "m07",
+        "m08",
+        "m09",
+        "m10",
+        "m11",
+        "m12",
+        "m13",
+        "m14",
+        "m15",
+        "m16",
+        "m17",
+        "m18",
+        "m19",
+        "m20",
+        "m21",
+      ];
+      const MAJOR_CN = [
+        "愚者",
+        "魔术师",
+        "女祭司",
+        "皇后",
+        "皇帝",
+        "教皇",
+        "恋人",
+        "战车",
+        "力量",
+        "隐士",
+        "命运之轮",
+        "正义",
+        "倒吊人",
+        "死神",
+        "节制",
+        "恶魔",
+        "高塔",
+        "星星",
+        "月亮",
+        "太阳",
+        "审判",
+        "世界",
+      ];
+
+      const TAROT_DECK = [];
+
+      // 添加大阿卡那牌
+      const majorLocalNames = [
+        "0愚人.png",
+        "1魔术师.png",
+        "2女祭司.png",
+        "3皇后.png",
+        "4皇帝.png",
+        "5教皇.png",
+        "6恋人.png",
+        "7战车.png",
+        "8力量.png",
+        "9隐士.png",
+        "10命运之轮.png",
+        "11正义.png",
+        "12倒吊人.png",
+        "13死神.png",
+        "14节制.png",
+        "15恶魔.png",
+        "16塔.png",
+        "17星星.png",
+        "18月亮.png",
+        "19太阳.png",
+        "20审判.png",
+        "21世界.png",
+      ];
+      MAJOR.forEach((code, i) => {
+        TAROT_DECK.push({
+          cn: MAJOR_CN[i],
+          url: `${IMG_ROOT}${majorLocalNames[i]}`,
+        });
+      });
+
+      // 添加小阿卡那牌
+      const minorLocalMap = {
+        w: { suit: "权杖", prefix: "权杖" },
+        c: { suit: "圣杯", prefix: "圣杯" },
+        s: { suit: "宝剑", prefix: "宝剑" },
+        p: { suit: "星币", prefix: "星币" },
+      };
+      const faceCardNames = ["侍从", "骑士", "王后", "国王"];
+
+      console.log("开始添加小阿卡那牌，当前TAROT_DECK长度:", TAROT_DECK.length);
+
+      // 使用传统for循环替代forEach循环
+      const suits = ["w", "c", "s", "p"];
+      for (let suitIndex = 0; suitIndex < suits.length; suitIndex++) {
+        const suit = suits[suitIndex];
+        console.log("处理花色:", suit, "索引:", suitIndex);
+        const suitInfo = minorLocalMap[suit];
+        const suitCn = suitInfo.suit;
+        const prefix = suitInfo.prefix;
+
+        console.log("花色信息:", suitCn, prefix);
+
+        // 添加数字牌 (1-10)
+        for (let j = 1; j <= 10; j++) {
+          const card = {
+            cn: `${suitCn}${j}`,
+            url: `${IMG_ROOT}${prefix}${j}.png`,
+          };
+          TAROT_DECK.push(card);
+          console.log(
+            "添加数字牌:",
+            card.cn,
+            "当前TAROT_DECK长度:",
+            TAROT_DECK.length
+          );
+        }
+
+        // 添加宫廷牌 (侍从, 骑士, 王后, 国王)
+        for (let j = 0; j < 4; j++) {
+          const card = {
+            cn: `${suitCn}${j + 11}`,
+            url: `${IMG_ROOT}${prefix}${faceCardNames[j]}.png`,
+          };
+          TAROT_DECK.push(card);
+          console.log(
+            "添加宫廷牌:",
+            card.cn,
+            "当前TAROT_DECK长度:",
+            TAROT_DECK.length
+          );
+        }
+      }
+
+      // 调试：检查TAROT_DECK的长度
+      console.log("最终TAROT_DECK长度:", TAROT_DECK.length);
+
+      // ================= 状态管理 =================
+      const CONFIG = {
+        cardWidth: 2.2,
+        cardHeight: 3.8,
+        spacing: 2.6,
+        camZ: 14,
+        selectedZ: 6, // 增加selectedZ的值，确保选中的牌能完整显示
+      };
+
+      const STATE = {
+        mode: "input",
+        drawnCards: [],
+        maxDraws: 3,
+        selectedMesh: null,
+        scrollOffset: 0,
+        targetScroll: 0,
+        isDragging: false,
+        startX: 0,
+        lastX: 0,
+        velocity: 0,
+        minScroll: 0,
+        maxScroll: 0,
+      };
+
+      let scene, camera, renderer, raycaster, mouse;
+      let cardMeshes = [];
+      let particles = [];
+      let cardBackTex;
+      const textureLoader = new THREE.TextureLoader();
+      textureLoader.setCrossOrigin("anonymous");
+
+      // ================= 流程控制 =================
+      function startApp() {
+        gsap.to("#step-0", {
+          opacity: 0,
+          duration: 0.8,
+          onComplete: () => {
+            document.getElementById("step-0").classList.add("hidden");
+            document.getElementById("step-draw").classList.remove("hidden");
+            STATE.mode = "draw";
+            init3D();
+          },
+        });
+      }
+
+      function confirmCard() {
+        if (!STATE.selectedMesh) return;
+        const mesh = STATE.selectedMesh;
+        const data = mesh.userData.data;
+
+        document.getElementById("btn-confirm").classList.add("hidden");
+        createExplosion(mesh.position);
+
+        gsap.to(mesh.scale, {
+          x: 0,
+          y: 0,
+          z: 0,
+          duration: 0.6,
+          ease: "power2.in",
+          onComplete: () => {
+            mesh.visible = false;
+            STATE.drawnCards.push(data);
+            updateSlotUI();
+            STATE.selectedMesh = null;
+            document.getElementById(
+              "instruction"
+            ).innerHTML = `左右拨动 · 寻获共鸣之牌`;
+            if (STATE.drawnCards.length >= STATE.maxDraws)
+              setTimeout(showResultPage, 1000);
+          },
+        });
+      }
+
+      function updateSlotUI() {
+        const idx = STATE.drawnCards.length;
+        if (idx === 0) return;
+        const slot = document.getElementById(`slot-${idx}`);
+        slot.style.backgroundImage = `url(${STATE.drawnCards[idx - 1].url})`;
+        slot.style.backgroundSize = "cover";
+        slot.style.borderColor = "#d4af37";
+        slot.innerHTML = "";
+      }
+
+      function showResultPage() {
+        STATE.mode = "result";
+        document.getElementById("step-draw").classList.add("hidden");
+        document.getElementById("step-result").classList.remove("hidden");
+        const container = document.getElementById("result-container");
+        STATE.drawnCards.forEach((card) => {
+          container.innerHTML += `
+            <div class="w-32 h-52 border border-[#d4af37]/50 rounded-sm overflow-hidden flex-shrink-0 relative">
+                <img src="${card.url}" class="w-full h-full object-cover">
+                <div class="absolute bottom-0 inset-x-0 bg-black/80 p-1 text-center text-[9px] text-[#d4af37]">${card.cn}</div>
+            </div>`;
+        });
+      }
+
+      function showDetails() {
+        document.getElementById("step-result").classList.add("hidden");
+        document.getElementById("step-details").classList.remove("hidden");
+        document.getElementById("log-id").innerText = Math.random()
+          .toString(36)
+          .substr(2, 6)
+          .toUpperCase();
+        const grid = document.getElementById("detail-cards-grid");
+        const labels = [
+          "THE PAST / 往昔",
+          "THE PRESENT / 现状",
+          "THE FUTURE / 启示",
+        ];
+
+        STATE.drawnCards.forEach((card, i) => {
+          grid.innerHTML += `
+            <div class="flex flex-col items-center">
+                <span class="text-[9px] text-gray-600 tracking-[0.4em] mb-6">${
+                  labels[i] || ""
+                }</span>
+                <div class="w-44 h-72 border border-[#222] shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-hidden">
+                    <img src="${card.url}" class="w-full h-full object-cover">
+                </div>
+                <h4 class="mt-6 text-[#d4af37] serif-font text-xl tracking-widest">${
+                  card.cn
+                }</h4>
+            </div>`;
+        });
+
+        document.getElementById("interpretation-text").innerHTML = `
+            <p><strong>[能量流动解析]</strong></p>
+            <p>太阳的意志通过 <strong>${STATE.drawnCards[0].cn}</strong> 指向了你的根源，这意味着你当前面临的处境并非偶然，而是宿命的必然。在 <strong>${STATE.drawnCards[1].cn}</strong> 的照耀下，你的真实渴望无所遁形。</p>
+            <p>最终，虚空将收拢于 <strong>${STATE.drawnCards[2].cn}</strong>。这不是终点，而是意识觉醒的契机。请紧握太阳之火，照亮未竟的旅程。</p>
+        `;
+      }
+
+      // ================= THREE.JS =================
+      function init3D() {
+        const container = document.getElementById("canvas-container");
+        scene = new THREE.Scene();
+        // 修复：减低迷雾浓度，防止远处牌突然消失 (0.04 -> 0.015)
+        scene.fog = new THREE.FogExp2(0x050505, 0.015);
+
+        camera = new THREE.PerspectiveCamera(
+          40,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          100
+        );
+        camera.position.set(0, 0, CONFIG.camZ);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        container.appendChild(renderer.domElement);
+
+        const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambient);
+        const sun = new THREE.PointLight(0xffd700, 1.5, 20);
+        sun.position.set(0, 5, 10);
+        scene.add(sun);
+
+        cardBackTex = createLuxuryCardBack();
+
+        // 使用TAROT_DECK的实际长度来创建牌
+        const count = TAROT_DECK.length;
+        console.log("创建牌的数量:", count);
+
+        const geo = new THREE.BoxGeometry(
+          CONFIG.cardWidth,
+          CONFIG.cardHeight,
+          0.05
+        );
+        const edgeMat = new THREE.MeshStandardMaterial({
+          color: 0x8a6d3b,
+          roughness: 0.1,
+          metalness: 0.9,
+        });
+        const backMat = new THREE.MeshStandardMaterial({
+          map: cardBackTex,
+          roughness: 0.3,
+          metalness: 0.8,
+        });
+
+        // 修复：初始正面颜色改为深灰而非纯黑，确保即使贴图未加载也能看见牌面
+        const frontMat = new THREE.MeshStandardMaterial({
+          color: 0x222222,
+          roughness: 0.8,
+        });
+        const mats = [edgeMat, edgeMat, edgeMat, edgeMat, frontMat, backMat];
+
+        for (let i = 0; i < count; i++) {
+          const mesh = new THREE.Mesh(
+            geo,
+            mats.map((m) => m.clone())
+          );
+          const baseX = i * CONFIG.spacing;
+          mesh.userData = { id: i, baseX: baseX, data: TAROT_DECK[i] };
+          mesh.position.x = baseX;
+          mesh.rotation.y = Math.PI;
+          scene.add(mesh);
+          cardMeshes.push(mesh);
+        }
+
+        STATE.minScroll = -2;
+        STATE.maxScroll = (count - 1) * CONFIG.spacing + 2;
+        console.log("滚动范围:", STATE.minScroll, "到", STATE.maxScroll);
+
+        raycaster = new THREE.Raycaster();
+        mouse = new THREE.Vector2();
+
+        window.addEventListener("resize", onResize);
+        window.addEventListener("mousedown", onDown);
+        window.addEventListener("mousemove", onMove);
+        window.addEventListener("mouseup", onUp);
+        window.addEventListener("touchstart", (e) => onDown(e.touches[0]), {
+          passive: false,
+        });
+        window.addEventListener(
+          "touchmove",
+          (e) => {
+            if (STATE.mode === "draw") e.preventDefault();
+            onMove(e.touches[0]);
+          },
+          { passive: false }
+        );
+        window.addEventListener("touchend", onUp);
+
+        animate();
+      }
+
+      function createLuxuryCardBack() {
+        const canvas = document.createElement("canvas");
+        canvas.width = 512;
+        canvas.height = 1024;
+        const ctx = canvas.getContext("2d");
+        const grd = ctx.createRadialGradient(256, 512, 0, 256, 512, 600);
+        grd.addColorStop(0, "#1a1a1e");
+        grd.addColorStop(1, "#050505");
+        ctx.fillStyle = grd;
+        ctx.fillRect(0, 0, 512, 1024);
+
+        ctx.translate(256, 512);
+        ctx.strokeStyle = "#d4af37";
+        for (let i = 0; i < 64; i++) {
+          ctx.rotate(Math.PI / 32);
+          ctx.beginPath();
+          ctx.lineWidth = i % 4 === 0 ? 3 : 0.5;
+          ctx.moveTo(0, 100);
+          ctx.lineTo(0, i % 8 === 0 ? 380 : 250);
+          ctx.stroke();
+        }
+        const sunGrd = ctx.createRadialGradient(0, 0, 10, 0, 0, 100);
+        sunGrd.addColorStop(0, "#fffde7");
+        sunGrd.addColorStop(1, "#d4af37");
+        ctx.fillStyle = sunGrd;
+        ctx.beginPath();
+        ctx.arc(0, 0, 100, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 15;
+        ctx.strokeRect(-236, -492, 472, 984);
+        return new THREE.CanvasTexture(canvas);
+      }
+
+      function onDown(e) {
+        if (STATE.mode !== "draw" || STATE.selectedMesh) return;
+        if (e.target && e.target.closest(".interactive")) return;
+        STATE.isDragging = true;
+        STATE.startX = e.clientX;
+        STATE.lastX = e.clientX;
+        STATE.velocity = 0;
+        document.body.classList.add("grabbing");
+      }
+
+      function onMove(e) {
+        if (!STATE.isDragging) return;
+        const delta = e.clientX - STATE.lastX;
+        STATE.lastX = e.clientX;
+        STATE.targetScroll -= delta * 0.04;
+        STATE.velocity = delta;
+      }
+
+      function onUp(e) {
+        if (!STATE.isDragging) return;
+        STATE.isDragging = false;
+        document.body.classList.remove("grabbing");
+        if (Math.abs(e.clientX - STATE.startX) < 5)
+          checkClick(e.clientX, e.clientY);
+      }
+
+      function checkClick(x, y) {
+        mouse.x = (x / window.innerWidth) * 2 - 1;
+        mouse.y = -(y / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(cardMeshes);
+        if (intersects.length > 0 && intersects[0].object.visible)
+          selectCard(intersects[0].object);
+      }
+
+      function selectCard(mesh) {
+        STATE.selectedMesh = mesh;
+
+        // 修复：加载图片时，如果出错也应该让颜色变白，至少能看到空白牌
+        const imgUrl = mesh.userData.data.url;
+
+        // 先变白，防止黑底
+        mesh.material[4].color.setHex(0xffffff);
+
+        textureLoader.load(
+          imgUrl,
+          (tex) => {
+            mesh.material[4].map = tex;
+            mesh.material[4].needsUpdate = true;
+          },
+          undefined,
+          (err) => {
+            console.warn("Texture load fail:", err);
+            // 加载失败保持白色，不处理
+          }
+        );
+
+        gsap.to(mesh.position, {
+          x: 0,
+          y: 0,
+          z: CONFIG.selectedZ,
+          duration: 1.2,
+          ease: "power3.out",
+        });
+        gsap.to(mesh.rotation, {
+          x: 0,
+          y: 0,
+          z: 0,
+          duration: 1.2,
+          ease: "back.out(1)",
+        });
+
+        document.getElementById(
+          "instruction"
+        ).innerHTML = `已捕获: <span class="text-[#d4af37] font-bold">${mesh.userData.data.cn}</span>`;
+        const btn = document.getElementById("btn-confirm");
+        btn.classList.remove("hidden");
+        gsap.fromTo(
+          btn,
+          { y: 20, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.4 }
+        );
+      }
+
+      function createExplosion(pos) {
+        const count = 100;
+        const geo = new THREE.BufferGeometry();
+        const positions = [];
+        for (let i = 0; i < count; i++) positions.push(0, 0, 0);
+        geo.setAttribute(
+          "position",
+          new THREE.Float32BufferAttribute(positions, 3)
+        );
+        const mat = new THREE.PointsMaterial({
+          color: 0xd4af37,
+          size: 0.1,
+          transparent: true,
+        });
+        const points = new THREE.Points(geo, mat);
+        points.position.copy(pos);
+        scene.add(points);
+        const vels = [];
+        for (let i = 0; i < count; i++)
+          vels.push({
+            x: (Math.random() - 0.5) * 0.3,
+            y: (Math.random() - 0.5) * 0.3,
+            z: (Math.random() - 0.5) * 0.3,
+          });
+        particles.push({ mesh: points, vels: vels, life: 1 });
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        if (STATE.mode === "draw") {
+          if (!STATE.isDragging && !STATE.selectedMesh) {
+            STATE.targetScroll -= STATE.velocity * 0.05;
+            STATE.velocity *= 0.95;
+          }
+          let actual = STATE.targetScroll;
+          if (actual < STATE.minScroll - 2) actual = STATE.minScroll - 2;
+          if (actual > STATE.maxScroll + 2) actual = STATE.maxScroll + 2;
+          STATE.scrollOffset += (actual - STATE.scrollOffset) * 0.1;
+
+          const pct =
+            (STATE.scrollOffset - STATE.minScroll) /
+            (STATE.maxScroll - STATE.minScroll);
+          document.getElementById("progress-bar").style.width = `${Math.min(
+            Math.max(pct * 100, 0),
+            100
+          )}%`;
+
+          cardMeshes.forEach((mesh) => {
+            if (mesh === STATE.selectedMesh || !mesh.visible) return;
+            const screenX = mesh.userData.baseX - STATE.scrollOffset;
+            mesh.position.x = screenX;
+
+            // 修复：Z轴曲线系数 0.5 -> 0.25，大大减缓后退速度，防止消失
+            const dist = Math.abs(screenX);
+            mesh.position.z = Math.max(-Math.pow(dist * 0.25, 2), -30);
+
+            mesh.rotation.y =
+              Math.PI +
+              (screenX < 0
+                ? -Math.min(dist * 0.1, 0.8)
+                : Math.min(dist * 0.1, 0.8));
+
+            // 修复：可见范围从 30 扩大到 60，防止边缘裁切
+            mesh.visible = screenX > -60 && screenX < 60;
+          });
+        }
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.life -= 0.02;
+          p.mesh.material.opacity = p.life;
+          const arr = p.mesh.geometry.attributes.position.array;
+          for (let j = 0; j < p.vels.length; j++) {
+            arr[j * 3] += p.vels[j].x;
+            arr[j * 3 + 1] += p.vels[j].y;
+            arr[j * 3 + 2] += p.vels[j].z;
+          }
+          p.mesh.geometry.attributes.position.needsUpdate = true;
+          if (p.life <= 0) {
+            scene.remove(p.mesh);
+            particles.splice(i, 1);
+          }
+        }
+        renderer.render(scene, camera);
+      }
+
+      function onResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+    </script>
+  </body>
+</html>
